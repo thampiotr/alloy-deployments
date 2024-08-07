@@ -1,0 +1,24 @@
+alloy:
+  clustering:
+    enabled: true
+  extraPorts:
+   - name: "otlp"
+     port: 4317
+     targetPort: 4317
+     protocol: "TCP"
+  extraArgs:
+    - --stability.level=experimental
+  extraEnv:
+    - name: OTLP_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: otlp-key
+    - name: MIMIR_PWD_FILE
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: mimir-key
+controller:
+  type: 'statefulset'
+  replicas: 3

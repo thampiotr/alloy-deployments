@@ -1,0 +1,16 @@
+alloy:
+  extraArgs:
+    - --stability.level=experimental
+  extraEnv:
+    - name: LOKI_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: loki-key
+    - name: MIMIR_PWD_FILE
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: mimir-key
+  mounts:
+    varlog: true

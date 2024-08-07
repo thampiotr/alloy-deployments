@@ -1,0 +1,69 @@
+version: '3'
+
+tasks:
+  kind:stop:
+    desc: Stop kind cluster
+    cmds:
+      - kind delete cluster --name alloy-deployments
+
+  kind:create:
+    desc: Create kind cluster
+    cmds:
+      - kind create cluster --name alloy-deployments --config kind-config.yaml
+      - kubectx kind-alloy-deployments
+    status:
+      - kind get kubeconfig --name alloy-deployments
+
+  k3d:create:
+    desc: Create k3d cluster
+    cmds:
+      - k3d cluster create alloy-deployments --servers 3
+      - kubectx k3d-alloy-deployments
+    status:
+      - k3d cluster list alloy-deployments
+
+  k3d:stop:
+    desc: Stop k3d cluster
+    cmds:
+      - k3d cluster delete alloy-deployments
+
+  deploy:targets:
+    desc: Deploy targets - workloads producing logs, metrics, traces, profiles etc.
+    cmds:
+      - kubectl apply -f targets/logger/logger.yaml
+      - kubectl apply -f targets/avalanche/avalanche.yaml
+      - kubectl apply -f targets/telemetrygen/telemetrygen.yaml
+
+  deploy:namespaces:
+    desc: Deploy namespaces
+    cmds:
+      - kubectl create namespace alloy
+    status:
+      - kubectl describe namespace alloy
+
+  deploy:secrets:
+    deps: [ deploy:namespaces ]
+    desc: Deploy secrets
+    cmds:
+      - kubectl create secret generic -n alloy grafana-cloud-keys "--from-file=loki-key=./secrets/loki_key" "--from-file=mimir-key=./secrets/mimir_key" "--from-file=otlp-key=./secrets/otlp_key"
+    status:
+      - kubectl describe secret -n alloy grafana-cloud-keys
+
+  deploy:alloy-ds:
+    deps: [ deploy:secrets ]
+    desc: Deploy Alloy vanilla daemonset installation following the docs and use a daemonset config
+    cmds:
+      - helm repo add grafana https://grafana.github.io/helm-charts
+      - helm upgrade --install --create-namespace --namespace alloy alloy-ds grafana/alloy --values alloy/daemonset/values.yaml --set-file alloy.configMap.content=alloy/daemonset/config.alloy
+
+  deploy:alloy-sts:
+    deps: [ deploy:secrets ]
+    desc: Deploy Alloy vanilla statefulset installation following the docs and use a statefulset config
+    cmds:
+      - helm repo add grafana https://grafana.github.io/helm-charts
+      - helm upgrade --install --create-namespace --namespace alloy alloy-sts grafana/alloy --values alloy/statefulset/values.yaml --set-file alloy.configMap.content=alloy/statefulset/config.alloy
+
+  deploy:all:
+    deps: [ deploy:targets, deploy:alloy-ds, deploy:alloy-sts ]
+    desc: Deploy all workloads
+    cmds: []

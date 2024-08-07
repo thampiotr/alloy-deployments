@@ -1,0 +1,38 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: avalanche
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: avalanche-deployment
+  namespace: avalanche
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: avalanche
+  template:
+    metadata:
+      labels:
+        app: avalanche
+    spec:
+      containers:
+        - name: avalanche
+          image: quay.io/prometheuscommunity/avalanche:main
+          args:
+            - --port=8080
+            - --metric-count=100
+            - --value-interval=10
+            - --series-interval=1000000
+            - --metric-interval=1000000
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10

@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logger
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logger
+  namespace: logger
+  labels:
+    app: logger
+spec:
+  selector:
+    matchLabels:
+      app: logger
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: logger
+    spec:
+      containers:
+        - name: logger
+          image: alpine
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - while true; do echo "$HOSTNAME - $(date)"; sleep 1; done
+---
