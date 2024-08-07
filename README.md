@@ -13,12 +13,21 @@ Dependencies:
 
 ## Running this
 
-You'll need to put your secrets in `secrets/` folder. See `Taskfile.yml` and
+You'll need to put your usernames/passwords in `secrets/` folder. See `Taskfile.yml` and
 the `deploy:secrets` step for more information.
 
-Also, the usernames are currently hard-coded in `.alloy` config files. You'll
-need to change them to match your environment.
+Example:
+```shell
+secrets
+├── loki_key
+├── loki_username
+├── mimir_key
+├── mimir_username
+├── otlp_key
+└── otlp_username
+```
 
+To run this project:
 ```shell
 
 # Start a local k3d cluster

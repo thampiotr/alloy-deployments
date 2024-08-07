@@ -426,7 +426,7 @@ loki.write "logs_default" {
 		url = "https://logs-prod-008.grafana.net/loki/api/v1/push"
 
 		basic_auth {
-			username      = "473661"
+			username = env("LOKI_USERNAME")
 			password = env("LOKI_PASSWORD")
 		}
 	}

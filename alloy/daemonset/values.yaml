@@ -7,10 +7,20 @@ alloy:
         secretKeyRef:
           name: grafana-cloud-keys
           key: loki-key
-    - name: MIMIR_PWD_FILE
+    - name: LOKI_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: loki-username
+    - name: MIMIR_PASSWORD
       valueFrom:
         secretKeyRef:
           name: grafana-cloud-keys
           key: mimir-key
+    - name: MIMIR_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: mimir-username
   mounts:
     varlog: true

@@ -29,21 +29,24 @@ spec:
             - "--interval=10s"
             - "--rate=0.1"
             - "--duration=10h"
-#        - name: telemetrygen-logs
-#          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
-#          args:
-#            - "logs"
-#            - "--otlp-endpoint=alloy-sts-cluster.alloy.svc.cluster.local:4317"
-#            - "--otlp-insecure"
-#            - "--interval=10s"
-#            - "--rate=0.1"
-#            - "--duration=10h"
-#        - name: telemetrygen-metrics
-#          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
-#          args:
-#            - "metrics"
-#            - "--otlp-endpoint=alloy-sts-cluster.alloy.svc.cluster.local:4317"
-#            - "--otlp-insecure"
-#            - "--interval=10s"
-#            - "--rate=0.1"
-#            - "--duration=10h"
+            - "--telemetry-attributes=service.name=\"telemetrygen-traces\""
+        - name: telemetrygen-logs
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+          args:
+            - "logs"
+            - "--otlp-endpoint=alloy-sts-cluster.alloy.svc.cluster.local:4317"
+            - "--otlp-insecure"
+            - "--interval=10s"
+            - "--rate=0.1"
+            - "--duration=10h"
+            - "--telemetry-attributes=service.name=\"telemetrygen-logs\""
+        - name: telemetrygen-metrics
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+          args:
+            - "metrics"
+            - "--otlp-endpoint=alloy-sts-cluster.alloy.svc.cluster.local:4317"
+            - "--otlp-insecure"
+            - "--interval=10s"
+            - "--rate=0.1"
+            - "--duration=10h"
+            - "--telemetry-attributes=service.name=\"telemetrygen-metrics\""

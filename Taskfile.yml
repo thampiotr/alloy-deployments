@@ -45,7 +45,7 @@ tasks:
     deps: [ deploy:namespaces ]
     desc: Deploy secrets
     cmds:
-      - kubectl create secret generic -n alloy grafana-cloud-keys "--from-file=loki-key=./secrets/loki_key" "--from-file=mimir-key=./secrets/mimir_key" "--from-file=otlp-key=./secrets/otlp_key"
+      - kubectl create secret generic -n alloy grafana-cloud-keys "--from-file=loki-key=./secrets/loki_key" "--from-file=loki-username=./secrets/loki_username" "--from-file=mimir-key=./secrets/mimir_key" "--from-file=mimir-username=./secrets/mimir_username" "--from-file=otlp-key=./secrets/otlp_key" "--from-file=otlp-username=./secrets/otlp_username"
     status:
       - kubectl describe secret -n alloy grafana-cloud-keys
 
