@@ -13,6 +13,8 @@ tracing {
   write_to = [otelcol.exporter.otlphttp.grafana_cloud.input]
 }
 
+// ----- BEGIN standard OTLP pipeline -------
+
 otelcol.receiver.otlp "default" {
 	// configures the default grpc endpoint "0.0.0.0:4317"
 	grpc { }
@@ -85,4 +87,119 @@ otelcol.exporter.otlphttp "grafana_cloud" {
 otelcol.auth.basic "grafana_cloud" {
 	username = env("OTLP_USERNAME")
 	password = env("OTLP_PASSWORD")
-}  
+}
+
+// ----- END standard OTLP pipeline -------
+
+
+// ----- BEGIN sharded Prometheus scraping -------
+
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.relabel "kubernetes_pods" {
+  rule {
+    action = "keep"
+    regex = ".*metrics"
+    source_labels = ["__meta_kubernetes_pod_container_port_name"]
+  }
+  rule {
+    action = "drop"
+    regex = "Succeeded|Failed"
+    source_labels = ["__meta_kubernetes_pod_phase"]
+  }
+  rule {
+    action = "drop"
+    regex = "false"
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+  }
+  rule {
+    action = "replace"
+    regex = "(https?)"
+    replacement = "$1"
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scheme"]
+    target_label = "__scheme__"
+  }
+  rule {
+    action = "replace"
+    regex = "(.+)"
+    replacement = "$1"
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+    target_label = "__metrics_path__"
+  }
+  rule {
+    action = "replace"
+    regex = "(.+?)(\\:\\d+)?;(\\d+)"
+    replacement = "$1:$3"
+    source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+    target_label = "__address__"
+  }
+  rule {
+    action = "labelmap"
+    regex = "__meta_kubernetes_pod_annotation_prometheus_io_param_(.+)"
+    replacement = "__param_$1"
+  }
+  rule {
+    action = "labelmap"
+    regex = "__meta_kubernetes_pod_label_prometheus_io_label_(.+)"
+  }
+  rule {
+    action = "labelmap"
+    regex = "__meta_kubernetes_pod_annotation_prometheus_io_label_(.+)"
+  }
+  rule {
+    action = "replace"
+    replacement = "$1"
+    separator = "/"
+    source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_label_app_kubernetes_io_instance"]
+    target_label = "job"
+  }
+  rule {
+    action = "replace"
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label = "namespace"
+  }
+  rule {
+    action = "replace"
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label = "pod"
+  }
+  rule {
+    action = "replace"
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    target_label = "container"
+  }
+  rule {
+    action = "replace"
+    separator = ":"
+    source_labels = ["__meta_kubernetes_pod_name", "__meta_kubernetes_pod_container_name", "__meta_kubernetes_pod_container_port_name"]
+    target_label = "instance"
+  }
+  rule {
+    replacement = "alloy-deployments"
+    target_label = "cluster"
+  }
+  targets = concat(discovery.kubernetes.pods.targets)
+}
+
+prometheus.scrape "pods" {
+  clustering {
+    enabled = true
+  }
+  targets    = discovery.relabel.kubernetes_pods.output
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "https://prometheus-prod-05-gb-south-0.grafana.net/api/prom/push"
+
+    basic_auth {
+      username = env("MIMIR_USERNAME")
+      password = env("MIMIR_PASSWORD")
+    }
+  }
+}
+
+// ----- END sharded Prometheus scraping -------

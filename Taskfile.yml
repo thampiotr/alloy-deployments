@@ -42,9 +42,9 @@ tasks:
       - kubectl describe namespace alloy
 
   deploy:secrets:
-    deps: [ deploy:namespaces ]
     desc: Deploy secrets
     cmds:
+      - task: deploy:namespaces
       - kubectl create secret generic -n alloy grafana-cloud-keys "--from-file=loki-key=./secrets/loki_key" "--from-file=loki-username=./secrets/loki_username" "--from-file=mimir-key=./secrets/mimir_key" "--from-file=mimir-username=./secrets/mimir_username" "--from-file=otlp-key=./secrets/otlp_key" "--from-file=otlp-username=./secrets/otlp_username"
     status:
       - kubectl describe secret -n alloy grafana-cloud-keys
@@ -64,6 +64,8 @@ tasks:
       - helm upgrade --install --create-namespace --namespace alloy alloy-sts grafana/alloy --values alloy/statefulset/values.yaml --set-file alloy.configMap.content=alloy/statefulset/config.alloy
 
   deploy:all:
-    deps: [ deploy:targets, deploy:alloy-ds, deploy:alloy-sts ]
     desc: Deploy all workloads
-    cmds: []
+    cmds:
+      - task: deploy:targets
+      - task: deploy:alloy-ds
+      - task: deploy:alloy-sts

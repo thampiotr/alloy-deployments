@@ -14,7 +14,8 @@ Dependencies:
 ## Running this
 
 You'll need to put your usernames/passwords in `secrets/` folder. See `Taskfile.yml` and
-the `deploy:secrets` step for more information.
+the `deploy:secrets` step for more information. Note that the URLs of endpoints
+are currently hard-coded.
 
 Example:
 ```shell

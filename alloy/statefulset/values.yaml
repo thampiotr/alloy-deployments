@@ -19,6 +19,16 @@ alloy:
         secretKeyRef:
           name: grafana-cloud-keys
           key: otlp-username
+    - name: MIMIR_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: mimir-key
+    - name: MIMIR_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: mimir-username
 controller:
   type: 'statefulset'
   replicas: 3
