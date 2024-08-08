@@ -180,6 +180,10 @@ discovery.relabel "kubernetes_pods" {
     replacement = "alloy-deployments"
     target_label = "cluster"
   }
+  rule {
+   replacement = "alloy"
+   target_label = "scraped_by"
+ }
   targets = concat(discovery.kubernetes.pods.targets)
 }
 

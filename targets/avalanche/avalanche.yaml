@@ -30,6 +30,7 @@ spec:
             - --metric-interval=1000000
           ports:
             - containerPort: 8080
+              name: metrics
           readinessProbe:
             httpGet:
               path: /metrics

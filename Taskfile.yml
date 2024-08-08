@@ -27,6 +27,19 @@ tasks:
     cmds:
       - k3d cluster delete alloy-deployments
 
+  oteloperator:install:
+    desc: Install OpenTelemetry Operator. NOTE you may need to run this few times to get it installed correctly.
+    cmds:
+      - kubectl apply -f otel/operator/cert-manager.yaml
+      - helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+      - helm repo update
+      - helm install opentelemetry-operator open-telemetry/opentelemetry-operator --set manager.createRbacPermissions=true --set "manager.collectorImage.repository=otel/opentelemetry-collector-k8s" --set admissionWebhooks.certManager.enabled=false --set admissionWebhooks.autoGenerateCert.enabled=true
+
+  deploy:otelcol:
+    desc: Deploy OpenTelemetry Collector
+    cmds:
+      - kubectl apply -f otel/collector/collector.yaml
+
   deploy:targets:
     desc: Deploy targets - workloads producing logs, metrics, traces, profiles etc.
     cmds:
@@ -38,16 +51,20 @@ tasks:
     desc: Deploy namespaces
     cmds:
       - kubectl create namespace alloy
+      - kubectl create namespace otelcol
     status:
       - kubectl describe namespace alloy
+      - kubectl describe namespace otelcol
 
   deploy:secrets:
     desc: Deploy secrets
     cmds:
       - task: deploy:namespaces
       - kubectl create secret generic -n alloy grafana-cloud-keys "--from-file=loki-key=./secrets/loki_key" "--from-file=loki-username=./secrets/loki_username" "--from-file=mimir-key=./secrets/mimir_key" "--from-file=mimir-username=./secrets/mimir_username" "--from-file=otlp-key=./secrets/otlp_key" "--from-file=otlp-username=./secrets/otlp_username"
+      - kubectl create secret generic -n otelcol grafana-cloud-keys "--from-file=loki-key=./secrets/loki_key" "--from-file=loki-username=./secrets/loki_username" "--from-file=mimir-key=./secrets/mimir_key" "--from-file=mimir-username=./secrets/mimir_username" "--from-file=otlp-key=./secrets/otlp_key" "--from-file=otlp-username=./secrets/otlp_username"
     status:
       - kubectl describe secret -n alloy grafana-cloud-keys
+      - kubectl describe secret -n otelcol grafana-cloud-keys
 
   deploy:alloy-ds:
     deps: [ deploy:secrets ]
@@ -69,3 +86,4 @@ tasks:
       - task: deploy:targets
       - task: deploy:alloy-ds
       - task: deploy:alloy-sts
+      - task: deploy:otelcol

@@ -1,0 +1,191 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: otelcol
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otelcol-sts-targetallocator-role
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs: ["get"]
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs: ["get", "list", "watch"]
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otelcol-sts-targetallocator-sa
+  namespace: otelcol
+---
+apiVersion: rbac.authorization.k8s.io/v1
+# This cluster role binding allows anyone in the "manager" group to read secrets in any namespace.
+kind: ClusterRoleBinding
+metadata:
+  name: otelcol-sts-targetallocator-crb
+subjects:
+  - kind: ServiceAccount
+    name: otelcol-sts-targetallocator-sa
+    namespace: otelcol
+roleRef:
+  kind: ClusterRole
+  name: otelcol-sts-targetallocator-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otelcol-sts
+  namespace: otelcol
+spec:
+  image: otel/opentelemetry-collector-contrib
+  mode: statefulset
+  targetAllocator:
+    serviceAccount: otelcol-sts-targetallocator-sa
+    enabled: true
+    replicas: 2
+  env:
+    - name: OTLP_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: otlp-username
+    - name: OTLP_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: grafana-cloud-keys
+          key: otlp-key
+  replicas: 3
+  ports:
+    - name: metrics
+      port: 8888
+    - name: zpages
+      port: 55679
+  config:
+    extensions:
+      basicauth/grafana_cloud:
+        # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/basicauthextension
+        client_auth:
+          # TODO: cannot use this, see https://github.com/open-telemetry/opentelemetry-collector/issues/10552
+          # username: "${env:OTLP_USERNAME}"
+          username: "624262"
+          password: "${env:OTLP_PASSWORD}"
+      zpages:
+        endpoint: :55679
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+          - job_name: "kubernetes-pods"
+            kubernetes_sd_configs:
+              - role: pod
+            relabel_configs:
+              - action: keep
+                regex: ".*metrics"
+                source_labels: ["__meta_kubernetes_pod_container_port_name"]
+              - action: drop
+                regex: "Succeeded|Failed"
+                source_labels: ["__meta_kubernetes_pod_phase"]
+              - action: drop
+                regex: "false"
+                source_labels: ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+              - action: replace
+                regex: "(https?)"
+                replacement: "$1"
+                source_labels: ["__meta_kubernetes_pod_annotation_prometheus_io_scheme"]
+                target_label: "__scheme__"
+              - action: replace
+                regex: "(.+)"
+                replacement: "$1"
+                source_labels: ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+                target_label: "__metrics_path__"
+              - action: replace
+                regex: "(.+?)(:\\d+)?;(\\d+)"
+                replacement: "$1:$3"
+                source_labels: ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+                target_label: "__address__"
+              - action: labelmap
+                regex: "__meta_kubernetes_pod_annotation_prometheus_io_param_(.+)"
+                replacement: "__param_$1"
+              - action: labelmap
+                regex: "__meta_kubernetes_pod_label_prometheus_io_label_(.+)"
+              - action: labelmap
+                regex: "__meta_kubernetes_pod_annotation_prometheus_io_label_(.+)"
+              - action: replace
+                replacement: "$1"
+                separator: "/"
+                source_labels: ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_label_app_kubernetes_io_instance"]
+                target_label: "job"
+              - action: replace
+                source_labels: ["__meta_kubernetes_namespace"]
+                target_label: "namespace"
+              - action: replace
+                source_labels: ["__meta_kubernetes_pod_name"]
+                target_label: "pod"
+              - action: replace
+                source_labels: ["__meta_kubernetes_pod_container_name"]
+                target_label: "container"
+              - action: replace
+                separator: ":"
+                source_labels: ["__meta_kubernetes_pod_name", "__meta_kubernetes_pod_container_name", "__meta_kubernetes_pod_container_port_name"]
+                target_label: "instance"
+              - replacement: "alloy-deployments"
+                target_label: "cluster"
+              - replacement: "otelcol"
+                target_label: "scraped_by"
+    exporters:
+      debug: {}
+      otlphttp/grafana_cloud:
+        # https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+        endpoint: "https://otlp-gateway-prod-gb-south-0.grafana.net/otlp"
+        auth:
+          authenticator: basicauth/grafana_cloud
+
+    processors:
+      batch: {}
+      # https://github.com/open-telemetry/opentelemetry-collector/tree/main/processor/batchprocessor
+      resourcedetection:
+        # Enriches telemetry data with resource information from the host
+        # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor
+        detectors: [ "env", "system" ]
+        override: false
+      transform/add_resource_attributes_as_metric_attributes:
+        # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
+        error_mode: ignore
+        metric_statements:
+          - context: datapoint
+            statements:
+              - set(attributes["deployment.environment"], resource.attributes["deployment.environment"])
+              - set(attributes["service.version"], resource.attributes["service.version"])
+
+    service:
+      extensions: [zpages, basicauth/grafana_cloud]
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          processors: [ resourcedetection, transform/add_resource_attributes_as_metric_attributes, batch ]
+          exporters: [debug, otlphttp/grafana_cloud]
+
+
