@@ -10,12 +10,14 @@ Dependencies:
 - `k3d` or `kind`
 - `docker`
 - `go-task`
+- An OTLP, Loki and Prometheus backends to send data to.
 
 ## Running this
 
 You'll need to put your usernames/passwords in `secrets/` folder. See `Taskfile.yml` and
-the `deploy:secrets` step for more information. Note that the URLs of endpoints
-are currently hard-coded.
+the `deploy:secrets` step for more information. 
+
+    NOTE: that the URLs of endpoints are currently hard-coded.
 
 Example:
 ```shell
